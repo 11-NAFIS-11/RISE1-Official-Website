@@ -777,9 +777,12 @@ const BackgroundRing = () => {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    const defaultPos = () => ({ x: canvas.width * 0.72, y: canvas.height * 0.45 })
+
     const resize = () => {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
+      mouseRef.current = defaultPos()
     }
     resize()
     window.addEventListener('resize', resize)
@@ -793,7 +796,15 @@ const BackgroundRing = () => {
     const onMouseMove = (e: MouseEvent) => {
       mouseRef.current = { x: e.clientX, y: e.clientY }
     }
+    const onMouseLeave = () => { mouseRef.current = defaultPos() }
     window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseleave', onMouseLeave)
+
+    const onTouch = (e: TouchEvent) => {
+      const t = e.touches[0]
+      mouseRef.current = { x: t.clientX, y: t.clientY }
+    }
+    const onTouchEnd = () => { mouseRef.current = defaultPos() }
 
     const SPOKE_COUNT = 12
     const RING_RADII = [0.18, 0.28, 0.38, 0.46]
@@ -812,7 +823,14 @@ const BackgroundRing = () => {
 
       const mouse = mouseRef.current
 
+      const isMobile = W < 768
       const glowAt = (ax: number, ay: number, bx: number, by: number) => {
+        if (isMobile) {
+          const midX = (ax + bx) / 2
+          const midY = (ay + by) / 2
+          const dist = Math.sqrt((midX - cx) ** 2 + (midY - cy) ** 2)
+          return Math.max(0.06, 1 - dist / (base * 0.55))
+        }
         const midX = (ax + bx) / 2
         const midY = (ay + by) / 2
         const d = Math.sqrt((mouse.x - midX) ** 2 + (mouse.y - midY) ** 2)
@@ -877,7 +895,9 @@ const BackgroundRing = () => {
         // Draw nodes
         ringNodes.forEach((node) => {
           const d = Math.sqrt((mouse.x - node.x) ** 2 + (mouse.y - node.y) ** 2)
-          const glow = Math.max(0, 1 - d / 100)
+          const glow = isMobile
+            ? Math.max(0.06, 1 - Math.sqrt((node.x - cx) ** 2 + (node.y - cy) ** 2) / (base * 0.55))
+            : Math.max(0, 1 - d / 100)
           if (glow > 0.05) {
             ctx.beginPath()
             ctx.arc(node.x, node.y, 8 + glow * 6, 0, Math.PI * 2)
@@ -906,6 +926,7 @@ const BackgroundRing = () => {
       window.removeEventListener('resize', resize)
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseleave', onMouseLeave)
       cancelAnimationFrame(frameRef.current)
     }
   }, [])
